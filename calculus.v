@@ -203,6 +203,12 @@ Inductive subtype (K: pathCtxK): typ -> typ -> Prop :=
           (exists T, set_In (fj, T) ri /\ subtype K T Tj)) ->
         subtype K (typ_record ri) (typ_record rj).
 
+Fixpoint fields {A: Type} (r: set(fieldname * A)): set(fieldname) := 
+  match r with
+  | nil => nil
+  | (f, x) :: tail => f :: (fields tail)
+  end.
+
 (* typing judgment with path context K and typing context G *)
 Inductive has_typ (K: pathCtxK) (G: ctxGamma): exp -> typ -> Prop :=
   | T_Nat: forall n, has_typ K G (exp_nat n) typ_nat
@@ -219,9 +225,9 @@ Inductive has_typ (K: pathCtxK) (G: ctxGamma): exp -> typ -> Prop :=
         has_typ K G g (typ_arrow T T') ->
         has_typ K G (exp_app g e) T'
   | T_Rec: forall rdef rtyp,
-        (forall f e, set_In (f, e) rdef ->
-          exists T, set_In (f, T) rtyp /\ has_typ K G e T) ->
-        (length rdef = length rtyp) ->
+        (forall f T, set_In (f, T) rtyp -> 
+            exists e, set_In (f, e) rdef /\ has_typ K G e T) ->
+        (fields rdef = fields rtyp) ->
         has_typ K G (exp_recd rdef) (typ_record rtyp)
   | T_Proj: forall e rtyp f T,
         has_typ K G e (typ_record rtyp) ->
@@ -242,9 +248,10 @@ Inductive has_typ (K: pathCtxK) (G: ctxGamma): exp -> typ -> Prop :=
         link_comp_ex a L -> 
         set_In (R, Equal, rtyp) L.(types) ->
         (* TODO: add defaults here *)
-        has_typ K G (exp_recd rdef) (typ_record rtyp) ->
+        (*has_typ K G (exp_recd rdef) (typ_record rtyp) -> *)
         (* all fields in rdef and rtyp match up *)
-        (forall f e, set_In (f, e) rdef -> exists T, set_In (f, T) rtyp) ->
+        (forall f T, set_In (f, T) rtyp -> 
+            exists e, set_In (f, e) rdef /\ has_typ K G e T) ->
         has_typ K G (exp_instance_recd a R rdef) (typ_path a R)
   | T_ADT: forall a R c rdef L adtdef rtyp,
         wf_path K a -> 
@@ -252,8 +259,8 @@ Inductive has_typ (K: pathCtxK) (G: ctxGamma): exp -> typ -> Prop :=
         set_In (R, Equal, adtdef) L.(adts) ->
         set_In (c, rtyp) adtdef ->
         (*alternative: has_typ K G (exp_recd rdef) (typ_record rtyp) -> *)
-        (forall f e, set_In (f, e) rdef -> exists T, set_In (f, T) rtyp
-            /\ has_typ K G e T) ->
+        (forall f T, set_In (f, T) rtyp -> 
+            exists e, set_In (f, e) rdef /\ has_typ K G e T) ->
         has_typ K G (exp_instance_adt a R c rdef) (typ_path a R)
   | T_FamFun: forall a m T T' L e,
         wf_path K a -> 

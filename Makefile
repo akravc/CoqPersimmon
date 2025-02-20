@@ -12,6 +12,6 @@ depend:
 	$(COQDEP) $(VFILES) > .depend
 
 clean:
-	rm -f *.vo *.glob *.aux *.vok *.vos .*.aux
+	rm -f *.vo *.glob *.aux *.vok *.vos .*.aux .depend
 
 -include .depend

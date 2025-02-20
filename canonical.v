@@ -37,6 +37,42 @@ Proof.
       eapply transitivity_of_subtyping; eauto.
 Qed.
 
+Lemma canonical_fam: forall K G e a R, 
+  has_typ K G e (typ_path a R) ->
+  value e ->
+  ((exists a R rdef L rtyp,
+    e = (exp_instance_recd a R rdef) /\
+    wf_path K a /\
+    link_comp_ex a L /\
+    set_In (R, Equal, rtyp) L.(types) /\
+    (* TODO: add defaults here *)
+    (forall f T, set_In (f, T) rtyp -> 
+      exists e, set_In (f, e) rdef /\ has_typ K G e T))) \/
+  (exists a R c rdef L adtdef rtyp,
+    e = (exp_instance_adt a R c rdef) /\
+    wf_path K a /\ 
+    link_comp_ex a L /\
+    set_In (R, Equal, adtdef) L.(adts) /\
+    set_In (c, rtyp) adtdef /\
+    (forall f T, set_In (f, T) rtyp -> 
+      exists e, set_In (f, e) rdef /\ has_typ K G e T)).
+Proof.
+  intros. 
+  remember (typ_path a R) as tpath in *.
+  induction H; intros.
+  all: try solve [inversion Heqtpath].
+  all: try solve [inversion H0; eauto].
+  - (* Subsumption *)
+    subst. apply inv_subtype_path in H1.
+    apply IHhas_typ in H1; eauto.
+  - (* record instance *)
+    left. exists a, R, rdef, L, rtyp.
+    repeat split; try eauto; inversion Heqtpath; subst; eauto.
+  - (* ADT instance *) 
+    right. exists a, R, c, rdef, L, adtdef, rtyp.
+    repeat split; try eauto; inversion Heqtpath; subst; eauto.
+Qed.
+
 Lemma canonical_rec: forall K G e rt, 
   has_typ K G e (typ_record rt) ->
   value e ->
@@ -48,39 +84,50 @@ Lemma canonical_rec: forall K G e rt,
     has_typ K G e (typ_path a R) /\
     subtype K (typ_path a R) (typ_record rt))).
 Proof.
- (* WIP 
   intros. remember (typ_record rt) as trt in *.
   generalize dependent rt.
-  induction H; intros. Focus 8.
+  induction H; intros.
   all: try solve [inversion Heqtrt].
   all: try solve [inversion H0; eauto].
   - (* Rec case *)
-    intros. left. inversion Heqtrt; subst. 
+    left. inversion Heqtrt; subst. 
     exists rdef. split; eauto.
-    intros. apply H in H1.
-    inversion H1 as [T [Hs Ht]].
-    exists T; eauto.
   - (* Subsumption case *)
     subst. apply inv_subtype_record in H1.
     (* record ri is a subtype of rt *)
     inversion H1 as [Hrec | Hpath]; clear H1.
     + (* Rec case *)
-      left. inversion Hrec as [ri [HT' Hfr]]; subst.
+      inversion Hrec as [ri [HT' Hfr]]; subst.
       clear Hrec.
       eapply IHhas_typ in H0; clear IHhas_typ; try reflexivity.
       inversion H0 as [Hrec | Hpath]; clear H0.
-      ++ inversion Hrec as [x [H0 H1]]. exists x.
-        split; eauto. 
-        intros. apply H1 in H2. inversion H2.
-    + (* Path case *)
-
-*)
+      ++ left. inversion Hrec as [rdef' [A B]].
+        exists rdef'; split; auto. 
+        intros. apply Hfr in H0.
+        inversion H0 as [T0 [Hset Hsub]].
+        apply B in Hset. inversion Hset as [e' [Hset' Htyp]].
+        exists e'; split; auto.
+        econstructor; eauto.
+      ++ right. inversion Hpath as [a [R [rdef [He [Ht Hs]]]]].
+        exists a, R, rdef; repeat split; auto.
+        assert (X: subtype K (typ_record ri) (typ_record rt)).
+        econstructor. eauto.
+        inversion Hs. econstructor; eauto.
+        eapply transitivity_of_subtyping; eauto.
+    + clear IHhas_typ.
+      inversion Hpath as [a [R [L [typdef [Ht [Hwf [Hl [Hset Hsub]]]]]]]].
+      clear Hpath. subst.
+      eapply canonical_fam in H; auto.
+      inversion H as [Hrdef | Hadtdef]; clear H.
+      ++ inversion Hrdef as [a' [R' [rdef' [L' [rtyp' X]]]]].
+         inversion X as [He [Hwf' [Hl' [Hset' Hsub']]]].
+         clear Hrdef X. right.
+         exists a', R', rdef'. split; eauto. split.
+         { rewrite He. eapply T_Constr; eauto. }
+         { econstructor; eauto. econstructor. }
 Admitted.
+         
 
 
 
 
-
-
-  Admitted.
-  

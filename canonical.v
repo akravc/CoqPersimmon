@@ -9,6 +9,30 @@ Require Import calculus.
 Require Import transitivity.
 
 
+(*-----------------Helpers----------------------*)
+
+Theorem linkage_comp_eq: forall a L L', 
+  link_comp_ex a L -> 
+  link_comp_ex a L' ->
+  L = L'.
+Proof.
+Admitted.
+
+Theorem linkage_fam_rec_def_eq: forall R rt1 rt2 L,
+  set_In (R, Equal, rt1) (types L) ->
+  set_In (R, Equal, rt2) (types L) -> 
+  rt1 = rt2.
+Proof.
+Admitted.
+
+Theorem linkage_named_type_excl: forall R rdef L,
+  set_In (R, Equal, rdef) (types L) ->
+  ~exists adtdef, set_In (R, Equal, adtdef) (adts L).
+Proof.
+Admitted.
+
+(*======================Canonical Thms===========================*)
+
 Theorem canonical_fun: forall K G e T T', 
     has_typ K G e (typ_arrow T T') ->
     value e ->
@@ -40,7 +64,7 @@ Qed.
 Lemma canonical_fam: forall K G e a R, 
   has_typ K G e (typ_path a R) ->
   value e ->
-  ((exists a R rdef L rtyp,
+  ((exists rdef L rtyp,
     e = (exp_instance_recd a R rdef) /\
     wf_path K a /\
     link_comp_ex a L /\
@@ -48,7 +72,7 @@ Lemma canonical_fam: forall K G e a R,
     (* TODO: add defaults here *)
     (forall f T, set_In (f, T) rtyp -> 
       exists e, set_In (f, e) rdef /\ has_typ K G e T))) \/
-  (exists a R c rdef L adtdef rtyp,
+  (exists c rdef L adtdef rtyp,
     e = (exp_instance_adt a R c rdef) /\
     wf_path K a /\ 
     link_comp_ex a L /\
@@ -66,10 +90,10 @@ Proof.
     subst. apply inv_subtype_path in H1.
     apply IHhas_typ in H1; eauto.
   - (* record instance *)
-    left. exists a, R, rdef, L, rtyp.
+    left. exists rdef, L, rtyp.
     repeat split; try eauto; inversion Heqtpath; subst; eauto.
   - (* ADT instance *) 
-    right. exists a, R, c, rdef, L, adtdef, rtyp.
+    right. exists c, rdef, L, adtdef, rtyp.
     repeat split; try eauto; inversion Heqtpath; subst; eauto.
 Qed.
 
@@ -119,15 +143,19 @@ Proof.
       clear Hpath. subst.
       eapply canonical_fam in H; auto.
       inversion H as [Hrdef | Hadtdef]; clear H.
-      ++ inversion Hrdef as [a' [R' [rdef' [L' [rtyp' X]]]]].
+      ++ inversion Hrdef as [rdef' [L' [rtyp' X]]].
          inversion X as [He [Hwf' [Hl' [Hset' Hsub']]]].
          clear Hrdef X. right.
-         exists a', R', rdef'. split; eauto. split.
+         exists a, R, rdef'. split; eauto. split.
          { rewrite He. eapply T_Constr; eauto. }
-         { econstructor; eauto. econstructor. }
-Admitted.
-         
-
-
-
-
+         { econstructor; eauto.
+           assert (HL: L = L'). eapply linkage_comp_eq; eauto. subst.
+           assert (Hrt: typdef = rtyp').
+           eapply linkage_fam_rec_def_eq; eauto. subst. auto. }
+      ++ inversion Hadtdef as [c [rdef [L' [adtdef [rtyp X]]]]].
+         inversion X as [He [Hwf' [Hl' [Hset' [Hset'' Hsub']]]]].
+         clear Hadtdef X. apply linkage_named_type_excl in Hset.
+         exfalso. assert (HL: L = L'). 
+         eapply linkage_comp_eq; eauto. subst.
+         apply Hset. exists adtdef; eauto.
+Qed.
